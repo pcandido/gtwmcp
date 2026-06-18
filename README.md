@@ -12,20 +12,20 @@ OAuth secrets in the OS keychain.
 
 ```mermaid
 flowchart LR
-    CC["Claude Code / Client"]
-    GW["gtwmcp serve<br/>(stdio)"]
-    S1["MCP Stdio<br/>(github)"]
-    S2["MCP SSE<br/>(jira)"]
-    S3["MCP SSE + OAuth<br/>(api)"]
-    KC["OS Keychain<br/>(secrets)"]
-    CFG["~/.gtwmcp.json"]
+    CC["Claude Code"]
+    CD["Claude Desktop"]
+    CS["Cursor"]
+    GW["gtwmcp<br/>serve"]
+    S1["GitHub MCP<br/>(stdio)"]
+    S2["Jira MCP<br/>(SSE)"]
+    S3["API MCP<br/>(SSE + OAuth)"]
 
-    CC <-->|"JSON-RPC"| GW
-    GW <-->|"stdio"| S1
-    GW <-->|"HTTP/SSE"| S2
-    GW <-->|"HTTP/SSE + Bearer"| S3
-    GW --> CFG
-    GW --> KC
+    CC --> GW
+    CD --> GW
+    CS --> GW
+    GW --> S1
+    GW --> S2
+    GW --> S3
 ```
 
 ## Install
