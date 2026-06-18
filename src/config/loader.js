@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-const CONFIG_PATH = join(process.env.HOME, '.gtwmcp.json');
+function configPath() {
+  return join(process.env.HOME, '.gtwmcp.json');
+}
 
 const VALID_TYPES = new Set(['stdio', 'sse']);
 
@@ -70,7 +72,7 @@ function validateServer(name, server) {
 export async function loadConfig() {
   let raw;
   try {
-    raw = await readFile(CONFIG_PATH, 'utf-8');
+    raw = await readFile(configPath(), 'utf-8');
   } catch (err) {
     if (err.code === 'ENOENT') {
       return { version: 1, servers: {} };
