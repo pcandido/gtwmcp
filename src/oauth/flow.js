@@ -84,7 +84,9 @@ async function _runOAuthFlow(serverName, metadata) {
   authParams.set('code_challenge', codeChallenge);
   authParams.set('code_challenge_method', 'S256');
   authParams.set('redirect_uri', redirectUri);
-  authParams.set('scope', scopes);
+  if (scopes) {
+    authParams.set('scope', scopes);
+  }
   authParams.set('state', state);
 
   const authUrl = `${authorizationUrl}?${authParams.toString()}`;
@@ -190,7 +192,7 @@ function startCallbackServer(expectedState, port) {
 
           // Success — auto-close after countdown
           res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end(page('Authorization complete', '<p>You can close this window.</p>', 'ok', true));
+          res.end(page('Authorization complete', '<p>Token received successfully.</p>', 'ok'));
 
           server.close();
           resolve(code);
@@ -239,16 +241,8 @@ function probePort(port) {
 /**
  * Render an HTML page that auto-closes after 3 seconds with a countdown.
  */
-function page(title, body, kind, autoClose = false) {
+function page(title, body, kind) {
   const color = kind === 'ok' ? '#16a34a' : '#dc2626';
-  const timerHtml = autoClose ? `
-  <div class="timer" id="n">3</div>
-  <div class="dim">this tab closes automatically</div>
-  <script>
-    let s = 3;
-    const el = document.getElementById('n');
-    const iv = setInterval(() => { s--; if (s <= 0) { clearInterval(iv); window.close(); } else { el.textContent = s; } }, 1000);
-  </script>` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -265,15 +259,13 @@ function page(title, body, kind, autoClose = false) {
   .card { text-align: center; max-width: 360px; }
   h1 { font-size: 1.5rem; color: ${color}; margin-bottom: .5rem; }
   p { font-size: .875rem; color: #a3a3a3; line-height: 1.5; }
-  .timer { font-size: 2rem; font-weight: 700; color: ${color}; margin-top: 1.5rem; }
-  .dim { font-size: .75rem; color: #525252; margin-top: .25rem; }
 </style>
 </head>
 <body>
 <div class="card">
   <h1>${title}</h1>
   ${body}
-  ${timerHtml}
+  <p style="margin-top:1.5rem;font-size:.75rem;color:#525252">You can close this window.</p>
 </div>
 </body>
 </html>`;
