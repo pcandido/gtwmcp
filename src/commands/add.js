@@ -177,7 +177,13 @@ async function buildServerConfig(serverName, opts, existingConfig) {
       // Determine if we need to prompt
       const isNonInteractive = opts.type !== undefined; // has --type means non-interactive
       if (!oauthMeta.authorization_url || !oauthMeta.token_url || !oauthMeta.client_id) {
-        // Need prompts even in non-interactive for missing OAuth bits
+        if (isNonInteractive) {
+          // Non-interactive with --oauth but no metadata: just mark OAuth, defer flow to 'gtwmcp auth'
+          process.stderr.write('  OAuth metadata not fully provided — set oauth:true, run "gtwmcp auth" later.\n');
+          config.oauth = true;
+          return config;
+        }
+        // Interactive mode: prompt
         const rl = readline.createInterface({ input, output });
         try {
           process.stdout.write('OAuth details required:\n');
