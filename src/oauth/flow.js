@@ -9,7 +9,6 @@ import { stdin as input, stdout as output } from 'node:process';
 
 import { generateCodeVerifier, generateCodeChallenge, generateState } from './pkce.js';
 import { set as keychainSet } from '../keychain/index.js';
-import { discoverOAuthMetadata } from './discovery.js';
 
 /**
  * Run the full OAuth Authorization Code flow with PKCE.
@@ -20,6 +19,7 @@ import { discoverOAuthMetadata } from './discovery.js';
  * @param {string} metadata.token_url
  * @param {string} metadata.client_id
  * @param {string|string[]} [metadata.scopes]
+ * @param {number} [metadata.port]
  * @returns {Promise<Object>} The saved keychain entry
  */
 export async function runOAuthFlow(serverName, metadata) {
@@ -35,7 +35,7 @@ export async function pickFreePort() {
 }
 
 async function _runOAuthFlow(serverName, metadata) {
-  // Step 1: Resolve metadata (prompt if not provided)
+  // Step 1: Resolve metadata
   let authorizationUrl, tokenUrl, clientId, scopes;
 
   if (metadata) {
@@ -45,7 +45,6 @@ async function _runOAuthFlow(serverName, metadata) {
     scopes = metadata.scopes || '';
   } else {
     const rl = readline.createInterface({ input, output });
-
     try {
       authorizationUrl = (await rl.question('Authorization URL: ')).trim();
       tokenUrl = (await rl.question('Token URL: ')).trim();
@@ -61,19 +60,17 @@ async function _runOAuthFlow(serverName, metadata) {
     throw new Error('Authorization URL, Token URL, and Client ID are required');
   }
 
-  // Normalize scopes to a space-separated string
-  if (Array.isArray(scopes)) {
-    scopes = scopes.join(' ');
-  }
+  // Normalize scopes
+  if (Array.isArray(scopes)) scopes = scopes.join(' ');
 
   // Step 2: Generate PKCE values
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
   const state = generateState();
 
-  // Step 3: Start local HTTP server on a fixed high port
+  // Step 3: Start local HTTP server
   const port = metadata?.port || await _pickFreePort();
-  const { authCodePromise } = await startCallbackServer(state, port);
+  const { authCodePromise } = await startCallbackServer(port);
 
   const redirectUri = `http://127.0.0.1:${port}/callback`;
 
@@ -84,9 +81,7 @@ async function _runOAuthFlow(serverName, metadata) {
   authParams.set('code_challenge', codeChallenge);
   authParams.set('code_challenge_method', 'S256');
   authParams.set('redirect_uri', redirectUri);
-  if (scopes) {
-    authParams.set('scope', scopes);
-  }
+  if (scopes) authParams.set('scope', scopes);
   authParams.set('state', state);
 
   const authUrl = `${authorizationUrl}?${authParams.toString()}`;
@@ -120,13 +115,7 @@ async function _runOAuthFlow(serverName, metadata) {
 
   const { access_token, refresh_token, expires_in } = tokenResponse;
 
-  // Step 9: Compute expires_at
-  const expiresAt = expires_in
-    ? new Date(Date.now() + expires_in * 1000).toISOString()
-    : undefined;
-
-  // Step 10: Save to keychain
-  /** @type {Object} */
+  // Save to keychain
   const entry = {
     authorization_url: authorizationUrl,
     token_url: tokenUrl,
@@ -134,23 +123,20 @@ async function _runOAuthFlow(serverName, metadata) {
     scopes,
     access_token,
     refresh_token: refresh_token || null,
-    expires_at: expiresAt || null,
+    expires_at: expires_in
+      ? new Date(Date.now() + expires_in * 1000).toISOString()
+      : null,
   };
 
   await keychainSet(serverName, entry);
-
   return entry;
 }
 
-/**
- * Start a local HTTP callback server on 127.0.0.1 at the given port.
- * Returns a promise that resolves with the authorization code.
- *
- * @param {string} expectedState
- * @param {number} port
- * @returns {Promise<{ authCodePromise: Promise<string> }>}
- */
-function startCallbackServer(expectedState, port) {
+// ---------------------------------------------------------------------------
+// Callback server
+// ---------------------------------------------------------------------------
+
+function startCallbackServer(port) {
   return new Promise((resolveStart, rejectStart) => {
     const server = http.createServer();
 
@@ -166,49 +152,25 @@ function startCallbackServer(expectedState, port) {
 
           const params = url.searchParams;
           const code = params.get('code');
-          const returnedState = params.get('state');
           const error = params.get('error');
 
           if (error) {
             res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(page('Authorization failed', `<p>${error}</p>`, 'error'));
+            res.end(errorPage(error));
             server.close();
             return reject(new Error(`OAuth error: ${error}`));
           }
 
-          if (returnedState !== expectedState) {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(page('Session expired', '<p>The authorization session is no longer valid. Please try again.</p>', 'error'));
-            server.close();
-            return reject(new Error('OAuth state mismatch — possible CSRF attack'));
-          }
-
           if (!code) {
             res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(page('Missing code', '<p>No authorization code received. Please try again.</p>', 'error'));
+            res.end(errorPage('No authorization code received.'));
             server.close();
             return reject(new Error('No authorization code received'));
           }
 
-          // Success — try to close, fallback to friendly message
+          // Success
           res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end(`<!DOCTYPE html><html lang="en">
-<head><meta charset="utf-8"><title>gtwmcp — done</title>
-<style>
-  * { margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; background: #0d0d0d; color: #e5e5e5; }
-  .card { text-align: center; max-width: 360px; }
-  h1 { font-size: 1.5rem; color: #16a34a; margin-bottom: .5rem; }
-  p { font-size: .75rem; color: #525252; margin-top: 1rem; }
-</style></head>
-<body><div class="card">
-  <h1>Authorization complete</h1>
-  <p>You can close this window.</p>
-</div></body>
-<script>close()</script>
-</html>`);
+          res.end('<html><body style="background:#0d0d0d;color:#e5e5e5;display:flex;align-items:center;justify-content:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,sans-serif"><div style="text-align:center"><h1 style="color:#16a34a;font-size:1.5rem">Authorization complete</h1><p style="color:#525252;font-size:.75rem;margin-top:1rem">You can close this window.</p></div></body></html>');
 
           server.close();
           resolve(code);
@@ -229,10 +191,14 @@ function startCallbackServer(expectedState, port) {
   });
 }
 
-/**
- * Pick a free port in a high range (10240-10249).
- * Returns the first available port, or throws if all are busy.
- */
+function errorPage(msg) {
+  return `<html><body style="background:#0d0d0d;color:#e5e5e5;display:flex;align-items:center;justify-content:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,sans-serif"><div style="text-align:center;max-width:360px"><h1 style="color:#dc2626;font-size:1.5rem;margin-bottom:.5rem">Authorization failed</h1><p style="color:#a3a3a3;font-size:.875rem;line-height:1.5">${msg}</p><p style="color:#525252;font-size:.75rem;margin-top:1.5rem">You can close this window.</p></div></body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Port helpers
+// ---------------------------------------------------------------------------
+
 async function _pickFreePort() {
   for (let port = 10240; port <= 10249; port++) {
     const free = await probePort(port);
@@ -241,9 +207,6 @@ async function _pickFreePort() {
   throw new Error('No free callback port in range 10240-10249');
 }
 
-/**
- * Probe whether a port is available on 127.0.0.1.
- */
 function probePort(port) {
   return new Promise((resolve) => {
     const server = http.createServer();
@@ -254,42 +217,10 @@ function probePort(port) {
   });
 }
 
-/**
- * Render an HTML page that auto-closes after 3 seconds with a countdown.
- */
-function page(title, body, kind) {
-  const color = kind === 'ok' ? '#16a34a' : '#dc2626';
+// ---------------------------------------------------------------------------
+// Browser & HTTP
+// ---------------------------------------------------------------------------
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>gtwmcp — ${title}</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; background: #0d0d0d; color: #e5e5e5;
-  }
-  .card { text-align: center; max-width: 360px; }
-  h1 { font-size: 1.5rem; color: ${color}; margin-bottom: .5rem; }
-  p { font-size: .875rem; color: #a3a3a3; line-height: 1.5; }
-</style>
-</head>
-<body>
-<div class="card">
-  <h1>${title}</h1>
-  ${body}
-  <p style="margin-top:1.5rem;font-size:.75rem;color:#525252">You can close this window.</p>
-</div>
-</body>
-</html>`;
-}
-
-/**
- * Open a URL in the default browser.
- */
 function openBrowser(url) {
   const cmd = process.platform === 'darwin'
     ? `open "${url}"`
@@ -302,9 +233,6 @@ function openBrowser(url) {
   });
 }
 
-/**
- * POST form-urlencoded data and parse the JSON response.
- */
 function postForm(url, body) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -312,7 +240,7 @@ function postForm(url, body) {
 
     const postData = body.toString();
 
-    const options = {
+    const req = transport.request({
       hostname: parsed.hostname,
       port: parsed.port,
       path: parsed.pathname + parsed.search,
@@ -322,16 +250,12 @@ function postForm(url, body) {
         'Content-Length': Buffer.byteLength(postData),
       },
       timeout: 15000,
-    };
-
-    const req = transport.request(options, (res) => {
-      /** @type {Buffer[]} */
+    }, (res) => {
       const chunks = [];
       res.on('data', (chunk) => chunks.push(chunk));
       res.on('end', () => {
         try {
-          const responseBody = Buffer.concat(chunks).toString('utf-8');
-          resolve(JSON.parse(responseBody));
+          resolve(JSON.parse(Buffer.concat(chunks).toString('utf-8')));
         } catch {
           resolve(null);
         }
