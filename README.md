@@ -46,16 +46,27 @@ github  stdio  ✅ enabled   GitHub MCP
 jira    sse    ✅ enabled   Jira MCP
 ```
 
-Test a server:
+Authenticate an OAuth server:
 
 ```bash
-$ gtwmcp test jira
-Connecting to jira (sse) — https://mcp.jira.example.com/sse
-Authenticating... OK (token valid, expires in 45m)
+$ gtwmcp auth jira
+[jira] https://mcp.jira.example.com/sse
+  ✅ Token valid (expires in 45m)
+
+$ gtwmcp auth --force          # re-authenticate all OAuth servers
+```
+
+List tools from a server:
+
+```bash
+$ gtwmcp get jira
+jira (sse) — https://mcp.jira.example.com/sse
 Listing tools...
-  1. search_jira_issues     Search Jira issues using JQL
-  2. get_jira_issue         Get a specific Jira issue
-✅ 2 tools available — server is healthy.
+
+  1. search_jira_issues: Search Jira issues using JQL
+  2. get_jira_issue: Get a specific Jira issue
+
+2 tools available.
 ```
 
 ## CLI Reference
@@ -63,9 +74,9 @@ Listing tools...
 ```
 gtwmcp add    <name>    Add or update an MCP server
 gtwmcp remove <name>    Remove an MCP server
-gtwmcp get    <name>    Show a server's configuration
+gtwmcp get    <name>    List tools and descriptions from a server
 gtwmcp list             List all servers with status
-gtwmcp test   <name>    Test connection: authenticate, list tools
+gtwmcp auth   [name]    Authenticate OAuth servers (--force to re-auth)
 gtwmcp enable <name>    Enable a server
 gtwmcp disable <name>   Disable a server
 gtwmcp serve            Start the MCP gateway in stdio mode

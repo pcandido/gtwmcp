@@ -208,15 +208,24 @@ describe("CLI Integration", () => {
     assert.match(stdout, /❌.*disabled/);
   });
 
-  it("gtwmcp get shows config without secrets", async () => {
+  it("gtwmcp get lists tools from a server", async () => {
     testDir = await setupConfig({
-      demo: { type: "stdio", enabled: true, command: "echo", description: "Demo" },
+      mock: {
+        type: "stdio",
+        enabled: true,
+        command: "node",
+        args: [MOCK_SERVER],
+        description: "Mock server",
+      },
     });
 
-    const { stdout } = await runCLI(["get", "demo"]);
-    const parsed = JSON.parse(stdout);
-    assert.equal(parsed.name, "demo");
-    assert.equal(parsed.command, "echo");
+    const { stdout, code } = await runCLI(["get", "mock"]);
+    assert.equal(code, 0);
+    assert.match(stdout, /mock \(stdio\)/);
+    assert.match(stdout, /echo/);
+    assert.match(stdout, /add/);
+    assert.match(stdout, /get_time/);
+    assert.match(stdout, /3 tools available/);
   });
 
   it("gtwmcp enable / disable toggles server", async () => {
