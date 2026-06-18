@@ -3,7 +3,7 @@
 [![CI](https://github.com/pcandido/gtwmcp/actions/workflows/ci.yml/badge.svg)](https://github.com/pcandido/gtwmcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/gtwmcp)](https://www.npmjs.com/package/gtwmcp)
 [![node](https://img.shields.io/node/v/gtwmcp)](https://nodejs.org)
-[![license](https://img.shields.io/npm/l/gtwmcp)](LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen)](package.json)
 
 Aggregate multiple MCP servers behind a single stdio interface. Supports stdio-based
