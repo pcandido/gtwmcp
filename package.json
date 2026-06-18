@@ -1,0 +1,17 @@
+{
+  "name": "gmcp",
+  "version": "0.1.0",
+  "description": "MCP Gateway — aggregate multiple MCP servers behind a single stdio interface",
+  "license": "MIT",
+  "bin": {
+    "gmcp": "./bin/gmcp.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:ci": "node --test --test-reporter spec test/*.test.js"
+  }
+}
