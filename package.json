@@ -24,6 +24,7 @@
   "files": [
     "bin",
     "src",
+    "docs/diagrams",
     "LICENSE",
     "README.md"
   ],

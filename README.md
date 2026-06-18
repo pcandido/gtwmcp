@@ -10,23 +10,7 @@ Aggregate multiple MCP servers behind a single stdio interface. Supports stdio-b
 and HTTP SSE-based upstream MCPs (with OAuth). Configuration in `~/.gtwmcp.json`,
 OAuth secrets in the OS keychain.
 
-```mermaid
-flowchart LR
-    CC["Claude Code"]
-    CD["Claude Desktop"]
-    CS["Cursor"]
-    GW["gtwmcp<br/>serve"]
-    S1["GitHub MCP<br/>(stdio)"]
-    S2["Jira MCP<br/>(SSE)"]
-    S3["API MCP<br/>(SSE + OAuth)"]
-
-    CC --> GW
-    CD --> GW
-    CS --> GW
-    GW --> S1
-    GW --> S2
-    GW --> S3
-```
+![Architecture](docs/diagrams/architecture.png)
 
 ## Install
 
@@ -98,24 +82,7 @@ The gateway (`gtwmcp serve`) speaks MCP over stdio to the client. On startup it:
 5. Applies allow/block list filters
 6. Presents a single consolidated tool list
 
-```mermaid
-sequenceDiagram
-    participant CC as Client
-    participant GW as gtwmcp
-    participant UP as Upstream
-
-    CC->>GW: initialize
-    GW->>UP: connect + initialize + tools/list
-    UP-->>GW: [tool_a, tool_b, ...]
-    GW->>GW: prefix: srv__tool_a, srv__tool_b
-    GW-->>CC: { tools: [srv__tool_a, srv__tool_b] }
-
-    CC->>GW: tools/call { name: "srv__tool_a" }
-    GW->>GW: resolve: upstream=srv, tool=tool_a
-    GW->>UP: tools/call { name: "tool_a" }
-    UP-->>GW: result
-    GW-->>CC: result
-```
+![Gateway](docs/diagrams/gateway.png)
 
 ## Tool Filtering
 
@@ -178,26 +145,7 @@ GTWMCP_BLOCK_LIST="github__delete_*,github__admin_*"
 
 The gateway supports Authorization Code Flow with PKCE for SSE servers.
 
-```mermaid
-sequenceDiagram
-    participant CLI as gtwmcp add
-    participant Browser
-    participant AuthSrv as Auth Server
-    participant KC as Keychain
-
-    CLI->>AuthSrv: GET /.well-known/oauth-protected-resource
-    AuthSrv-->>CLI: { authorization_server: "https://..." }
-    CLI->>AuthSrv: GET /.well-known/oauth-authorization-server
-    AuthSrv-->>CLI: { authorization_endpoint, token_endpoint }
-    CLI->>CLI: Generate PKCE (code_verifier + code_challenge)
-    CLI->>Browser: Open auth URL
-    Browser->>AuthSrv: Authorize
-    AuthSrv-->>Browser: Redirect to localhost callback
-    Browser-->>CLI: Authorization code
-    CLI->>AuthSrv: POST token (code + code_verifier)
-    AuthSrv-->>CLI: { access_token, refresh_token }
-    CLI->>KC: Save tokens
-```
+![OAuth Flow](docs/diagrams/oauth.png)
 
 At runtime, `gtwmcp serve` auto-refreshes expired tokens before each call.
 
