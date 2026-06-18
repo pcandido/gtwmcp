@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant CC as Client
+    participant GW as gtwmcp
+    participant UP as Upstream
+
+    CC->>GW: initialize
+    GW->>UP: connect + initialize + tools/list
+    UP-->>GW: [tool_a, tool_b, ...]
+    GW->>GW: prefix: srv__tool_a, srv__tool_b
+    GW-->>CC: { tools: [srv__tool_a, srv__tool_b] }
+
+    CC->>GW: tools/call { name: "srv__tool_a" }
+    GW->>GW: resolve: upstream=srv, tool=tool_a
+    GW->>UP: tools/call { name: "tool_a" }
+    UP-->>GW: result
+    GW-->>CC: result
