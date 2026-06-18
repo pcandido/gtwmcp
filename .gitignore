@@ -1,0 +1,4 @@
+node_modules/
+*.log
+.gtwmcp.json
+.gtwmcp.json.*
